@@ -1,5 +1,11 @@
 import bisect
 
+"""
+Дефинирање на класа за структурата на проблемот кој ќе го решаваме со пребарување.
+Класата Problem е апстрактна класа од која правиме наследување за дефинирање на основните 
+карактеристики на секој проблем што сакаме да го решиме
+"""
+
 
 class Problem:
     def __init__(self, initial, goal=None):
@@ -306,199 +312,212 @@ class PriorityQueue(Queue):
                 self.data.pop(i)
 
 
-def tree_search(problem, fringe):
-    """ Пребарувај низ следбениците на даден проблем за да најдеш цел.
-    :param problem: даден проблем
-    :type problem: Problem
-    :param fringe:  празна редица (queue)
-    :type fringe: FIFOQueue or Stack or PriorityQueue
-    :return: Node or None
-    :rtype: Node
-    """
-    fringe.append(Node(problem.initial))
-    while fringe:
-        node = fringe.pop()
-        print(node.state)
-        if problem.goal_test(node.state):
-            return node
-        fringe.extend(node.expand(problem))
-    return None
-
-
-def breadth_first_tree_search(problem):
-    """Експандирај го прво најплиткиот јазол во пребарувачкото дрво.
-    :param problem: даден проблем
-    :type problem: Problem
-    :return: Node or None
-    :rtype: Node
-    """
-    return tree_search(problem, FIFOQueue())
-
-
-def depth_first_tree_search(problem):
-    """Експандирај го прво најдлабокиот јазол во пребарувачкото дрво.
-    :param problem: даден проблем
-    :type problem: Problem
-    :return: Node or None
-    :rtype: Node
-    """
-    return tree_search(problem, Stack())
-
+from sys import maxsize as infinity
 
 """
-Неинформирано пребарување во рамки на граф
-Основната разлика е во тоа што овде не дозволуваме јамки, 
-т.е. повторување на состојби
+Информирано пребарување во рамки на граф
 """
 
 
-def graph_search(problem, fringe):
-    """Пребарувај низ следбениците на даден проблем за да најдеш цел.
-     Ако до дадена состојба стигнат два пата, употреби го најдобриот пат.
+def memoize(fn, slot=None):
+    """ Запамети ја пресметаната вредност за која била листа од
+    аргументи. Ако е специфициран slot, зачувај го резултатот во
+    тој slot на првиот аргумент. Ако slot е None, зачувај ги
+    резултатите во речник.
+    :param fn: зададена функција
+    :type fn: function
+    :param slot: име на атрибут во кој се чуваат резултатите од функцијата
+    :type slot: str
+    :return: функција со модификација за зачувување на резултатите
+    :rtype: function
+    """
+    if slot:
+        def memoized_fn(obj, *args):
+            if hasattr(obj, slot):
+                return getattr(obj, slot)
+            else:
+                val = fn(obj, *args)
+                setattr(obj, slot, val)
+                return val
+    else:
+        def memoized_fn(*args):
+            if args not in memoized_fn.cache:
+                memoized_fn.cache[args] = fn(*args)
+            return memoized_fn.cache[args]
+
+        memoized_fn.cache = {}
+    return memoized_fn
+
+
+def best_first_graph_search(problem, f):
+    """Пребарувај низ следбениците на даден проблем за да најдеш цел. Користи
+     функција за евалуација за да се одлучи кој е сосед најмногу ветува и
+     потоа да се истражи. Ако до дадена состојба стигнат два пата, употреби
+     го најдобриот пат.
     :param problem: даден проблем
     :type problem: Problem
-    :param fringe:  празна редица (queue)
-    :type fringe: FIFOQueue or Stack or PriorityQueue
+    :param f: дадена функција за евалуација (проценка)
+    :type f: function
     :return: Node or None
     :rtype: Node
     """
-    closed = set()
-    fringe.append(Node(problem.initial))
-    while fringe:
-        node = fringe.pop()
+    f = memoize(f, 'f')
+    node = Node(problem.initial)
+    if problem.goal_test(node.state):
+        return node
+    frontier = PriorityQueue(min, f)
+    frontier.append(node)
+    explored = set()
+    while frontier:
+        node = frontier.pop()
         if problem.goal_test(node.state):
             return node
-        if node.state not in closed:
-            closed.add(node.state)
-            fringe.extend(node.expand(problem))
+        explored.add(node.state)
+        for child in node.expand(problem):
+            if child.state not in explored and child not in frontier:
+                frontier.append(child)
+            elif child in frontier:
+                incumbent = frontier[child]
+                if f(child) < f(incumbent):
+                    del frontier[incumbent]
+                    frontier.append(child)
     return None
 
 
-def breadth_first_graph_search(problem):
-    """Експандирај го прво најплиткиот јазол во пребарувачкиот граф.
+def greedy_best_first_graph_search(problem, h=None):
+    """ Greedy best-first пребарување се остварува ако се специфицира дека f(n) = h(n).
     :param problem: даден проблем
     :type problem: Problem
+    :param h: дадена функција за хевристика
+    :type h: function
     :return: Node or None
-    :rtype: Node
     """
-    return graph_search(problem, FIFOQueue())
+    h = memoize(h or problem.h, 'h')
+    return best_first_graph_search(problem, h)
 
 
-def depth_first_graph_search(problem):
-    """Експандирај го прво најдлабокиот јазол во пребарувачкиот граф.
+def astar_search(problem, h=None):
+    """ A* пребарување е best-first graph пребарување каде f(n) = g(n) + h(n).
     :param problem: даден проблем
     :type problem: Problem
+    :param h: дадена функција за хевристика
+    :type h: function
     :return: Node or None
-    :rtype: Node
     """
-    return graph_search(problem, Stack())
+    h = memoize(h or problem.h, 'h')
+    return best_first_graph_search(problem, lambda n: n.path_cost + h(n))
 
 
-def depth_limited_search(problem, limit=50):
-    """Експандирај го прво најдлабокиот јазол во пребарувачкиот граф
-    со ограничена длабочина.
+def recursive_best_first_search(problem, h=None):
+    """Recursive best first search - ја ограничува рекурзијата
+    преку следење на f-вредноста на најдобриот алтернативен пат
+    од било кој јазел предок (еден чекор гледање нанапред).
     :param problem: даден проблем
     :type problem: Problem
-    :param limit: лимит за длабочината
-    :type limit: int
+    :param h: дадена функција за хевристика
+    :type h: function
     :return: Node or None
-    :rtype: Node
     """
+    h = memoize(h or problem.h, 'h')
 
-    def recursive_dls(node, problem, limit):
-        """Помошна функција за depth limited"""
-        cutoff_occurred = False
+    def RBFS(problem, node, flimit):
         if problem.goal_test(node.state):
-            return node
-        elif node.depth == limit:
-            return 'cutoff'
-        else:
-            for successor in node.expand(problem):
-                result = recursive_dls(successor, problem, limit)
-                if result == 'cutoff':
-                    cutoff_occurred = True
-                elif result is not None:
-                    return result
-        if cutoff_occurred:
-            return 'cutoff'
-        return None
+            return node, 0  # (втората вредност е неважна)
+        successors = node.expand(problem)
+        if len(successors) == 0:
+            return None, infinity
+        for s in successors:
+            s.f = max(s.path_cost + h(s), node.f)
+        while True:
+            # Подреди ги според најниската f вредност
+            successors.sort(key=lambda x: x.f)
+            best = successors[0]
+            if best.f > flimit:
+                return None, best.f
+            if len(successors) > 1:
+                alternative = successors[1].f
+            else:
+                alternative = infinity
+            result, best.f = RBFS(problem, best, min(flimit, alternative))
+            if result is not None:
+                return result, best.f
 
-    return recursive_dls(Node(problem.initial), problem, limit)
-
-
-def iterative_deepening_search(problem):
-    """Експандирај го прво најдлабокиот јазол во пребарувачкиот граф
-    со ограничена длабочина, со итеративно зголемување на длабочината.
-    :param problem: даден проблем
-    :type problem: Problem
-    :return: Node or None
-    :rtype: Node
-    """
-    for depth in range(sys.maxsize):
-        result = depth_limited_search(problem, depth)
-        if result is not 'cutoff':
-            return result
+    node = Node(problem.initial)
+    node.f = h(node)
+    result, bestf = RBFS(problem, node, infinity)
+    return result
 
 
-def uniform_cost_search(problem):
-    """Експандирај го прво јазолот со најниска цена во пребарувачкиот граф.
-    :param problem: даден проблем
-    :type problem: Problem
-    :return: Node or None
-    :rtype: Node
-    """
-    return graph_search(problem, PriorityQueue(min, lambda a: a.path_cost))
+class Snake(Problem):
 
-
-class BlackSquares(Problem):
-
-    def __init__(self, n, initial, goal=None):
+    def __init__(self, initial, goal=None):
         super().__init__(initial, goal)
-        self.n = n
+
+    def check_valid(self, head, snake):
+        return head not in snake[:-1]
+
+    @staticmethod
+    def move(head, ga, snake, dir):
+        new_green_apples = list(ga)
+        new_body = list(snake)
+        if head in ga:
+            new_green_apples.remove(head)
+            new_body.insert(0, head)
+        else:
+            new_body = new_body[:-1]
+            new_body.insert(0, head)
+        return tuple(new_body), tuple(new_green_apples), dir
 
     def successor(self, state):
-        # state -> ((a,b,c),(d,c,f)...)
+        # state ((snake),(green),direction)
         successor = dict()
-        for i in range(0, self.n):
-            for j in range(0, self.n):
-                matrix = list()
-                for elem in state:
-                    matrix.append(list(elem))  # [[a,b,c][d,c,f]...]
-                if matrix[i][j] == 0:
-                    matrix[i][j] = 1
-                else:
-                    matrix[i][j] = 0
-                # Up
-                if i + 1 < self.n:
-                    if matrix[i + 1][j] == 0:
-                        matrix[i + 1][j] = 1
-                    else:
-                        matrix[i + 1][j] = 0
-                # Down
-                if i - 1 >= 0:
-                    if matrix[i - 1][j] == 0:
-                        matrix[i - 1][j] = 1
-                    else:
-                        matrix[i - 1][j] = 0
-                # Left
-                if j - 1 >= 0:
-                    if matrix[i][j - 1] == 0:
-                        matrix[i][j - 1] = 1
-                    else:
-                        matrix[i][j - 1] = 0
-                # Right
-                if j + 1 < self.n:
-                    if matrix[i][j + 1] == 0:
-                        matrix[i][j + 1] = 1
-                    else:
-                        matrix[i][j + 1] = 0
+        snake = state[0]  # snake = [(0,7), (0,8), (0,9) ]
+        ga = state[1]
+        dir = state[2]
+        head = snake[0]
+        x, y = head[0], head[1]
 
-                new_state = list()
-                for elem in matrix:
-                    new_state.append(tuple(elem))
+        if dir == 0:  # dolu
+            new_head = (x, y - 1)
+            if y - 1 >= 0 and self.check_valid(new_head, snake):
+                successor["ProdolzhiPravo"] = self.move(new_head, ga, snake, 0)
+            new_head = (x - 1, y)
+            if x - 1 >= 0 and self.check_valid(new_head, snake):
+                successor["SvrtiDesno"] = self.move(new_head, ga, snake, 3)
+            new_head = (x + 1, y)
+            if x + 1 < 10 and self.check_valid(new_head, snake):
+                successor["SvrtiLevo"] = self.move(new_head, ga, snake, 1)
+        if dir == 1:  # desno
+            new_head = (x + 1, y)
+            if x + 1 < 10 and self.check_valid(new_head, snake):
+                successor["ProdolzhiPravo"] = self.move(new_head, ga, snake, 1)
+            new_head = (x, y + 1)
+            if y + 1 < 10 and self.check_valid(new_head, snake):
+                successor["SvrtiLevo"] = self.move(new_head, ga, snake, 2)
+            new_head = (x, y - 1)
+            if y - 1 >= 0 and self.check_valid(new_head, snake):
+                successor["SvrtiDesno"] = self.move(new_head, ga, snake, 0)
+        if dir == 2:  # gore
+            new_head = (x, y + 1)
+            if y + 1 < 10 and self.check_valid(new_head, snake):
+                successor["ProdolzhiPravo"] = self.move(new_head, ga, snake, 2)
+            new_head = (x + 1, y)
+            if x + 1 < 10 and self.check_valid(new_head, snake):
+                successor["SvrtiDesno"] = self.move(new_head, ga, snake, 1)
+            new_head = (x - 1, y)
+            if x - 1 >= 0 and self.check_valid(new_head, snake):
+                successor["SvrtiLevo"] = self.move(new_head, ga, snake, 3)
+        if dir == 3:  # levo
+            new_head = (x - 1, y)
+            if x - 1 >= 0 and self.check_valid(new_head, snake):
+                successor["ProdolzhiPravo"] = self.move(new_head, ga, snake, 3)
+            new_head = (x, y + 1)
+            if y + 1 < 10 and self.check_valid(new_head, snake):
+                successor["SvrtiDesno"] = self.move(new_head, ga, snake, 2)
+            new_head = (x, y - 1)
+            if y - 1 >= 0 and self.check_valid(new_head, snake):
+                successor["SvrtiLevo"] = self.move(new_head, ga, snake, 0)
 
-                if new_state != state:
-                    successor[f'x: {i}, y: {j}'] = tuple(new_state)
         return successor
 
     def actions(self, state):
@@ -508,27 +527,24 @@ class BlackSquares(Problem):
         return self.successor(state)[action]
 
     def goal_test(self, state):
-        return state == self.goal
+        return len(state[1]) == 0
+
+    @staticmethod
+    def manhattan_distance(x1, y1, x2, y2):
+        return abs(x1 - x2) + abs(y1 - y2)
+
+    def h(self, node):
+        x1, y1 = node.state[0][0]  # head of snake's body
+        mh = []
+        for x2, y2 in node.state[1]:  # coodinates of each green apple
+            mh.append(self.manhattan_distance(x1, y1, x2, y2))
+        return max(mh) if len(mh) > 0 else 0
 
 
 if __name__ == "__main__":
-    # 3
-    # 0,0,0,1,0,0,1,1,0
     n = int(input())
-    temp_list = input().split(',')
-
-    initial = list()
-    goal = list()
-
-    for i in range(0, n):
-        row = list()
-        row_goal = list()
-        for j in range(0, n):
-            row.append(int(temp_list[j + i * n]))
-            row_goal.append(1)
-        initial.append(tuple(row))
-        goal.append(tuple(row_goal))
-
-    squares = BlackSquares(n, tuple(initial), tuple(goal))
-    result = breadth_first_graph_search(squares).solution()
-    print(result)
+    zeleni_jabolki = [tuple(map(int, input().split(','))) for i in range(n)]
+    snake_body = ((0, 7), (0, 8), (0, 9))
+    snake = Snake((snake_body, tuple(zeleni_jabolki), 0))
+    result = astar_search(snake)
+    print(result.solution())

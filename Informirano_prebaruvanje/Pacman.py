@@ -1,5 +1,11 @@
 import bisect
 
+"""
+Дефинирање на класа за структурата на проблемот кој ќе го решаваме со пребарување.
+Класата Problem е апстрактна класа од која правиме наследување за дефинирање на основните 
+карактеристики на секој проблем што сакаме да го решиме
+"""
+
 
 class Problem:
     def __init__(self, initial, goal=None):
@@ -306,199 +312,271 @@ class PriorityQueue(Queue):
                 self.data.pop(i)
 
 
-def tree_search(problem, fringe):
-    """ Пребарувај низ следбениците на даден проблем за да најдеш цел.
-    :param problem: даден проблем
-    :type problem: Problem
-    :param fringe:  празна редица (queue)
-    :type fringe: FIFOQueue or Stack or PriorityQueue
-    :return: Node or None
-    :rtype: Node
-    """
-    fringe.append(Node(problem.initial))
-    while fringe:
-        node = fringe.pop()
-        print(node.state)
-        if problem.goal_test(node.state):
-            return node
-        fringe.extend(node.expand(problem))
-    return None
-
-
-def breadth_first_tree_search(problem):
-    """Експандирај го прво најплиткиот јазол во пребарувачкото дрво.
-    :param problem: даден проблем
-    :type problem: Problem
-    :return: Node or None
-    :rtype: Node
-    """
-    return tree_search(problem, FIFOQueue())
-
-
-def depth_first_tree_search(problem):
-    """Експандирај го прво најдлабокиот јазол во пребарувачкото дрво.
-    :param problem: даден проблем
-    :type problem: Problem
-    :return: Node or None
-    :rtype: Node
-    """
-    return tree_search(problem, Stack())
-
+from sys import maxsize as infinity
 
 """
-Неинформирано пребарување во рамки на граф
-Основната разлика е во тоа што овде не дозволуваме јамки, 
-т.е. повторување на состојби
+Информирано пребарување во рамки на граф
 """
 
 
-def graph_search(problem, fringe):
-    """Пребарувај низ следбениците на даден проблем за да најдеш цел.
-     Ако до дадена состојба стигнат два пата, употреби го најдобриот пат.
+def memoize(fn, slot=None):
+    """ Запамети ја пресметаната вредност за која била листа од
+    аргументи. Ако е специфициран slot, зачувај го резултатот во
+    тој slot на првиот аргумент. Ако slot е None, зачувај ги
+    резултатите во речник.
+    :param fn: зададена функција
+    :type fn: function
+    :param slot: име на атрибут во кој се чуваат резултатите од функцијата
+    :type slot: str
+    :return: функција со модификација за зачувување на резултатите
+    :rtype: function
+    """
+    if slot:
+        def memoized_fn(obj, *args):
+            if hasattr(obj, slot):
+                return getattr(obj, slot)
+            else:
+                val = fn(obj, *args)
+                setattr(obj, slot, val)
+                return val
+    else:
+        def memoized_fn(*args):
+            if args not in memoized_fn.cache:
+                memoized_fn.cache[args] = fn(*args)
+            return memoized_fn.cache[args]
+
+        memoized_fn.cache = {}
+    return memoized_fn
+
+
+def best_first_graph_search(problem, f):
+    """Пребарувај низ следбениците на даден проблем за да најдеш цел. Користи
+     функција за евалуација за да се одлучи кој е сосед најмногу ветува и
+     потоа да се истражи. Ако до дадена состојба стигнат два пата, употреби
+     го најдобриот пат.
     :param problem: даден проблем
     :type problem: Problem
-    :param fringe:  празна редица (queue)
-    :type fringe: FIFOQueue or Stack or PriorityQueue
+    :param f: дадена функција за евалуација (проценка)
+    :type f: function
     :return: Node or None
     :rtype: Node
     """
-    closed = set()
-    fringe.append(Node(problem.initial))
-    while fringe:
-        node = fringe.pop()
+    f = memoize(f, 'f')
+    node = Node(problem.initial)
+    if problem.goal_test(node.state):
+        return node
+    frontier = PriorityQueue(min, f)
+    frontier.append(node)
+    explored = set()
+    while frontier:
+        node = frontier.pop()
         if problem.goal_test(node.state):
             return node
-        if node.state not in closed:
-            closed.add(node.state)
-            fringe.extend(node.expand(problem))
+        explored.add(node.state)
+        for child in node.expand(problem):
+            if child.state not in explored and child not in frontier:
+                frontier.append(child)
+            elif child in frontier:
+                incumbent = frontier[child]
+                if f(child) < f(incumbent):
+                    del frontier[incumbent]
+                    frontier.append(child)
     return None
 
 
-def breadth_first_graph_search(problem):
-    """Експандирај го прво најплиткиот јазол во пребарувачкиот граф.
+def greedy_best_first_graph_search(problem, h=None):
+    """ Greedy best-first пребарување се остварува ако се специфицира дека f(n) = h(n).
     :param problem: даден проблем
     :type problem: Problem
+    :param h: дадена функција за хевристика
+    :type h: function
     :return: Node or None
-    :rtype: Node
     """
-    return graph_search(problem, FIFOQueue())
+    h = memoize(h or problem.h, 'h')
+    return best_first_graph_search(problem, h)
 
 
-def depth_first_graph_search(problem):
-    """Експандирај го прво најдлабокиот јазол во пребарувачкиот граф.
+def astar_search(problem, h=None):
+    """ A* пребарување е best-first graph пребарување каде f(n) = g(n) + h(n).
     :param problem: даден проблем
     :type problem: Problem
+    :param h: дадена функција за хевристика
+    :type h: function
     :return: Node or None
-    :rtype: Node
     """
-    return graph_search(problem, Stack())
+    h = memoize(h or problem.h, 'h')
+    return best_first_graph_search(problem, lambda n: n.path_cost + h(n))
 
 
-def depth_limited_search(problem, limit=50):
-    """Експандирај го прво најдлабокиот јазол во пребарувачкиот граф
-    со ограничена длабочина.
+def recursive_best_first_search(problem, h=None):
+    """Recursive best first search - ја ограничува рекурзијата
+    преку следење на f-вредноста на најдобриот алтернативен пат
+    од било кој јазел предок (еден чекор гледање нанапред).
     :param problem: даден проблем
     :type problem: Problem
-    :param limit: лимит за длабочината
-    :type limit: int
+    :param h: дадена функција за хевристика
+    :type h: function
     :return: Node or None
-    :rtype: Node
     """
+    h = memoize(h or problem.h, 'h')
 
-    def recursive_dls(node, problem, limit):
-        """Помошна функција за depth limited"""
-        cutoff_occurred = False
+    def RBFS(problem, node, flimit):
         if problem.goal_test(node.state):
-            return node
-        elif node.depth == limit:
-            return 'cutoff'
-        else:
-            for successor in node.expand(problem):
-                result = recursive_dls(successor, problem, limit)
-                if result == 'cutoff':
-                    cutoff_occurred = True
-                elif result is not None:
-                    return result
-        if cutoff_occurred:
-            return 'cutoff'
-        return None
+            return node, 0  # (втората вредност е неважна)
+        successors = node.expand(problem)
+        if len(successors) == 0:
+            return None, infinity
+        for s in successors:
+            s.f = max(s.path_cost + h(s), node.f)
+        while True:
+            # Подреди ги според најниската f вредност
+            successors.sort(key=lambda x: x.f)
+            best = successors[0]
+            if best.f > flimit:
+                return None, best.f
+            if len(successors) > 1:
+                alternative = successors[1].f
+            else:
+                alternative = infinity
+            result, best.f = RBFS(problem, best, min(flimit, alternative))
+            if result is not None:
+                return result, best.f
 
-    return recursive_dls(Node(problem.initial), problem, limit)
-
-
-def iterative_deepening_search(problem):
-    """Експандирај го прво најдлабокиот јазол во пребарувачкиот граф
-    со ограничена длабочина, со итеративно зголемување на длабочината.
-    :param problem: даден проблем
-    :type problem: Problem
-    :return: Node or None
-    :rtype: Node
-    """
-    for depth in range(sys.maxsize):
-        result = depth_limited_search(problem, depth)
-        if result is not 'cutoff':
-            return result
+    node = Node(problem.initial)
+    node.f = h(node)
+    result, bestf = RBFS(problem, node, infinity)
+    return result
 
 
-def uniform_cost_search(problem):
-    """Експандирај го прво јазолот со најниска цена во пребарувачкиот граф.
-    :param problem: даден проблем
-    :type problem: Problem
-    :return: Node or None
-    :rtype: Node
-    """
-    return graph_search(problem, PriorityQueue(min, lambda a: a.path_cost))
+def move_forward(pacman, direction, dots, obstacles):
+    new_pacman = list(pacman)
+    new_dir = direction
+
+    if direction == "jug":
+        if (pacman[0], pacman[1] - 1) not in obstacles and pacman[1] - 1 >= 0:
+            new_pacman[1] = new_pacman[1] - 1
+            new_dir = "jug"
+    elif direction == "sever":
+        if (pacman[0], pacman[1] + 1) not in obstacles and pacman[1] + 1 < 10:
+            new_pacman[1] = new_pacman[1] + 1
+            new_dir = "sever"
+    elif direction == "istok":
+        if (pacman[0] + 1, pacman[1]) not in obstacles and pacman[0] + 1 < 10:
+            new_pacman[0] = new_pacman[0] + 1
+            new_dir = "istok"
+    elif direction == "zapad":
+        if (pacman[0] - 1, pacman[1]) not in obstacles and pacman[0] - 1 >= 0:
+            new_pacman[0] = new_pacman[0] - 1
+            new_dir = "zapad"
+
+    new_dots = tuple([dot for dot in dots if dot != tuple(new_pacman)])
+    return tuple(new_pacman), new_dir, new_dots
 
 
-class BlackSquares(Problem):
+def move_back(pacman, direction, dots, obstacles):
+    new_pacman = list(pacman)
+    new_dir = direction
 
-    def __init__(self, n, initial, goal=None):
+    if direction == "sever":
+        if (pacman[0], pacman[1] - 1) not in obstacles and pacman[1] - 1 >= 0:
+            new_pacman[1] = new_pacman[1] - 1
+            new_dir = "jug"
+    elif direction == "jug":
+        if (pacman[0], pacman[1] + 1) not in obstacles and pacman[1] + 1 < 10:
+            new_pacman[1] = new_pacman[1] + 1
+            new_dir = "sever"
+    elif direction == "zapad":
+        if (pacman[0] + 1, pacman[1]) not in obstacles and pacman[0] + 1 < 10:
+            new_pacman[0] = new_pacman[0] + 1
+            new_dir = "istok"
+    elif direction == "istok":
+        if (pacman[0] - 1, pacman[1]) not in obstacles and pacman[0] - 1 >= 0:
+            new_pacman[0] = new_pacman[0] - 1
+            new_dir = "zapad"
+
+    new_dots = tuple([dot for dot in dots if dot != tuple(new_pacman)])
+    return tuple(new_pacman), new_dir, new_dots
+
+
+def turn_left(pacman, direction, dots, obstacles):
+    new_pacman = list(pacman)
+    new_dir = direction
+
+    if direction == "zapad":
+        if (pacman[0], pacman[1] - 1) not in obstacles and pacman[1] - 1 >= 0:
+            new_pacman[1] = new_pacman[1] - 1
+            new_dir = "jug"
+    elif direction == "istok":
+        if (pacman[0], pacman[1] + 1) not in obstacles and pacman[1] + 1 < 10:
+            new_pacman[1] = new_pacman[1] + 1
+            new_dir = "sever"
+    elif direction == "jug":
+        if (pacman[0] + 1, pacman[1]) not in obstacles and pacman[0] + 1 < 10:
+            new_pacman[0] = new_pacman[0] + 1
+            new_dir = "istok"
+    elif direction == "sever":
+        if (pacman[0] - 1, pacman[1]) not in obstacles and pacman[0] - 1 >= 0:
+            new_pacman[0] = new_pacman[0] - 1
+            new_dir = "zapad"
+
+    new_dots = tuple([dot for dot in dots if dot != tuple(new_pacman)])
+    return tuple(new_pacman), new_dir, new_dots
+
+
+def turn_right(pacman, direction, dots, obstacles):
+    new_pacman = list(pacman)
+    new_dir = direction
+
+    if direction == "istok":
+        if (pacman[0], pacman[1] - 1) not in obstacles and pacman[1] - 1 >= 0:
+            new_pacman[1] = new_pacman[1] - 1
+            new_dir = "jug"
+    elif direction == "zapad":
+        if (pacman[0], pacman[1] + 1) not in obstacles and pacman[1] + 1 < 10:
+            new_pacman[1] = new_pacman[1] + 1
+            new_dir = "sever"
+    elif direction == "sever":
+        if (pacman[0] + 1, pacman[1]) not in obstacles and pacman[0] + 1 < 10:
+            new_pacman[0] = new_pacman[0] + 1
+            new_dir = "istok"
+    elif direction == "jug":
+        if (pacman[0] - 1, pacman[1]) not in obstacles and pacman[0] - 1 >= 0:
+            new_pacman[0] = new_pacman[0] - 1
+            new_dir = "zapad"
+
+    new_dots = tuple([dot for dot in dots if dot != tuple(new_pacman)])
+    return tuple(new_pacman), new_dir, new_dots
+
+
+class Pacman(Problem):
+
+    def __init__(self, obstacles, initial, goal=None):
         super().__init__(initial, goal)
-        self.n = n
+        self.obstacles = obstacles
 
     def successor(self, state):
-        # state -> ((a,b,c),(d,c,f)...)
+        # state = ((x, y), direction, dots)
         successor = dict()
-        for i in range(0, self.n):
-            for j in range(0, self.n):
-                matrix = list()
-                for elem in state:
-                    matrix.append(list(elem))  # [[a,b,c][d,c,f]...]
-                if matrix[i][j] == 0:
-                    matrix[i][j] = 1
-                else:
-                    matrix[i][j] = 0
-                # Up
-                if i + 1 < self.n:
-                    if matrix[i + 1][j] == 0:
-                        matrix[i + 1][j] = 1
-                    else:
-                        matrix[i + 1][j] = 0
-                # Down
-                if i - 1 >= 0:
-                    if matrix[i - 1][j] == 0:
-                        matrix[i - 1][j] = 1
-                    else:
-                        matrix[i - 1][j] = 0
-                # Left
-                if j - 1 >= 0:
-                    if matrix[i][j - 1] == 0:
-                        matrix[i][j - 1] = 1
-                    else:
-                        matrix[i][j - 1] = 0
-                # Right
-                if j + 1 < self.n:
-                    if matrix[i][j + 1] == 0:
-                        matrix[i][j + 1] = 1
-                    else:
-                        matrix[i][j + 1] = 0
+        pacman = state[0]
+        dir = state[1]  # istok', 'zapad', 'sever', 'jug'
+        dots = state[2]
 
-                new_state = list()
-                for elem in matrix:
-                    new_state.append(tuple(elem))
+        new_pacman, new_dir, new_dots = move_forward(pacman, dir, dots, self.obstacles)
+        if new_pacman != pacman:
+            successor["ProdolzhiPravo"] = (new_pacman, new_dir, new_dots)
 
-                if new_state != state:
-                    successor[f'x: {i}, y: {j}'] = tuple(new_state)
+        new_pacman, new_dir, new_dots = move_back(pacman, dir, dots, self.obstacles)
+        if new_pacman != pacman:
+            successor["ProdolzhiNazad"] = (new_pacman, new_dir, new_dots)
+
+        new_pacman, new_dir, new_dots = turn_left(pacman, dir, dots, self.obstacles)
+        if new_pacman != pacman:
+            successor["SvrtiLevo"] = (new_pacman, new_dir, new_dots)
+
+        new_pacman, new_dir, new_dots = turn_right(pacman, dir, dots, self.obstacles)
+        if new_pacman != pacman:
+            successor["SvrtiDesno"] = (new_pacman, new_dir, new_dots)
+
         return successor
 
     def actions(self, state):
@@ -508,27 +586,34 @@ class BlackSquares(Problem):
         return self.successor(state)[action]
 
     def goal_test(self, state):
-        return state == self.goal
+        return len(state[2]) == 0
+
+    @staticmethod
+    def manhattan_distance(x1, y1, x2, y2):
+        return abs(x1 - x2) + abs(y1 - y2)
+
+    def h(self, node):
+        x1, y1 = node.state[0]
+        mh = []
+        for x2, y2 in node.state[2]:
+            mh.append(self.manhattan_distance(x1, y1, x2, y2))
+        return max(mh) if len(mh) > 0 else 0
 
 
 if __name__ == "__main__":
-    # 3
-    # 0,0,0,1,0,0,1,1,0
-    n = int(input())
-    temp_list = input().split(',')
+    x = int(input())  # 0
+    y = int(input())  # 0
+    pacman_coordinates = (x, y)
+    direction = input()  # istok
+    number_of_dots = int(input())  # 5
+    dots = list()
+    for i in range(0, number_of_dots):
+        dots.append(tuple(map(int, input().split(","))))
 
-    initial = list()
-    goal = list()
+    obstacles = [(6, 0), (4, 1), (5, 1), (6, 1), (8, 1), (1, 2), (6, 2), (1, 3), (1, 4), \
+                 (8, 4), (9, 4), (4, 5), (0, 6), (3, 6), (4, 6), (5, 6), (4, 7), (8, 7), \
+                 (9, 7), (0, 8), (8, 8), (9, 8), (0, 9), (1, 9), (2, 9), (3, 9), (6, 9)]
 
-    for i in range(0, n):
-        row = list()
-        row_goal = list()
-        for j in range(0, n):
-            row.append(int(temp_list[j + i * n]))
-            row_goal.append(1)
-        initial.append(tuple(row))
-        goal.append(tuple(row_goal))
-
-    squares = BlackSquares(n, tuple(initial), tuple(goal))
-    result = breadth_first_graph_search(squares).solution()
-    print(result)
+    pacman = Pacman(obstacles, (pacman_coordinates, direction, tuple(dots)))
+    result = astar_search(pacman)
+    print(result.solution())

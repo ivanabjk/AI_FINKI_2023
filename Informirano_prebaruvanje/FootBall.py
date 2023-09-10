@@ -469,6 +469,8 @@ def recursive_best_first_search(problem, h=None):
     node.f = h(node)
     result, bestf = RBFS(problem, node, infinity)
     return result
+
+
 def move_up(x, y, bx, by):  # y+1
     x, y = x, y + 1
     kicked = 0
@@ -488,7 +490,7 @@ def move_down(x, y, bx, by):  # y-1
 
 
 def move_right(x, y, bx, by):  # x+1
-    x, y = x + 1 , y
+    x, y = x + 1, y
     kicked = 0
     if x == bx and y == by:
         bx += 1
@@ -621,4 +623,3 @@ if __name__ == '__main__':
     football = Football(opponents, (man_pos, ball_pos))
     result = astar_search(football)
     print(result.solution())
-
