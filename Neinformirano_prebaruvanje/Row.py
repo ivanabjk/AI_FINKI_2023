@@ -465,31 +465,35 @@ def uniform_cost_search(problem):
 
 
 def move_right(index, row):
+    new_row = list(row)
     if index + 1 < len(row) and row[index + 1] == 0:
-        row[index + 1] = row[index]
-        row[index] = 0
-    return row
+        new_row[index + 1] = row[index]
+        new_row[index] = 0
+    return tuple(new_row)
 
 
 def hop_right(index, row):
+    new_row = list(row)
     if index + 2 < len(row) and row[index + 2] == 0 and row[index + 1] != 0:
-        row[index + 2] = row[index]
-        row[index] = 0
-    return row
+        new_row[index + 2] = row[index]
+        new_row[index] = 0
+    return tuple(new_row)
 
 
 def move_left(index, row):
+    new_row = list(row)
     if index - 1 >= 0 and row[index - 1] == 0:
-        row[index - 1] = row[index]
-        row[index] = 0
-    return row
+        new_row[index - 1] = row[index]
+        new_row[index] = 0
+    return tuple(new_row)
 
 
 def hop_left(index, row):
+    new_row = list(row)
     if index - 2 >= 0 and row[index - 2] == 0 and row[index - 1] != 0:
-        row[index - 2] = row[index]
-        row[index] = 0
-    return row
+        new_row[index - 2] = row[index]
+        new_row[index] = 0
+    return tuple(new_row)
 
 
 class Row(Problem):
@@ -499,28 +503,28 @@ class Row(Problem):
     def successor(self, state):
         successor = dict()
         # state = ((1,2,3,0,0,0,0), (0,0,0,0,3,2,1))
-        initial_row = list(state[0])  # 3
+        initial_row = state[0]  # 3
         goal_row = state[1]  # 7
 
         for i in range(0, len(goal_row)):
             if initial_row[i] == 0:
                 continue
 
-            new_row = move_right(i, initial_row[:])
+            new_row = move_right(i, initial_row)
             if new_row != initial_row:
-                successor[f'D1: Disk {initial_row[i]}'] = (tuple(new_row), goal_row)
+                successor[f'D1: Disk {initial_row[i]}'] = (new_row, goal_row)
 
-            new_row = hop_right(i, initial_row[:])
+            new_row = hop_right(i, initial_row)
             if new_row != initial_row:
-                successor[f"D2: Disk {initial_row[i]}"] = (tuple(new_row), goal_row)
+                successor[f"D2: Disk {initial_row[i]}"] = (new_row, goal_row)
 
-            new_row = move_left(i, initial_row[:])
+            new_row = move_left(i, initial_row)
             if new_row != initial_row:
-                successor[f"L1: Disk {initial_row[i]}"] = (tuple(new_row), goal_row)
+                successor[f"L1: Disk {initial_row[i]}"] = (new_row, goal_row)
 
-            new_row = hop_left(i, initial_row[:])
+            new_row = hop_left(i, initial_row)
             if new_row != initial_row:
-                successor[f"L2: Disk {initial_row[i]}"] = (tuple(new_row), goal_row)
+                successor[f"L2: Disk {initial_row[i]}"] = (new_row, goal_row)
 
         return successor
 
