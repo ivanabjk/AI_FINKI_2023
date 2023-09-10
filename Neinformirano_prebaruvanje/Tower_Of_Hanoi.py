@@ -1,11 +1,5 @@
 import bisect
 
-"""
-Дефинирање на класа за структурата на проблемот кој ќе го решаваме со пребарување.
-Класата Problem е апстрактна класа од која правиме наследување за дефинирање на основните 
-карактеристики на секој проблем што сакаме да го решиме
-"""
-
 
 class Problem:
     def __init__(self, initial, goal=None):
@@ -312,14 +306,6 @@ class PriorityQueue(Queue):
                 self.data.pop(i)
 
 
-import sys
-
-"""
-Неинформирано пребарување во рамки на дрво.
-Во рамки на дрвото не разрешуваме јамки.
-"""
-
-
 def tree_search(problem, fringe):
     """ Пребарувај низ следбениците на даден проблем за да најдеш цел.
     :param problem: даден проблем
@@ -464,65 +450,31 @@ def uniform_cost_search(problem):
     return graph_search(problem, PriorityQueue(min, lambda a: a.path_cost))
 
 
-def move_right(index, row):
-    if index + 1 < len(row) and row[index + 1] == 0:
-        row[index + 1] = row[index]
-        row[index] = 0
-    return row
+class Tower_Of_Hanoi(Problem):
 
-
-def hop_right(index, row):
-    if index + 2 < len(row) and row[index + 2] == 0 and row[index + 1] != 0:
-        row[index + 2] = row[index]
-        row[index] = 0
-    return row
-
-
-def move_left(index, row):
-    if index - 1 >= 0 and row[index - 1] == 0:
-        row[index - 1] = row[index]
-        row[index] = 0
-    return row
-
-
-def hop_left(index, row):
-    if index - 2 >= 0 and row[index - 2] == 0 and row[index - 1] != 0:
-        row[index - 2] = row[index]
-        row[index] = 0
-    return row
-
-
-class Row(Problem):
-    def __init__(self, initial, goal=None):
+    def __init__(self, n, initial, goal = None):
         super().__init__(initial, goal)
+        self.n = n
 
     def successor(self, state):
+        # state = ((3,2,1), (), ())
+        initial = state[0]
         successor = dict()
-        # state = ((1,2,3,0,0,0,0), (0,0,0,0,3,2,1))
-        initial_row = list(state[0])  # 3
-        goal_row = state[1]  # 7
-
-        for i in range(0, len(goal_row)):
-            if initial_row[i] == 0:
-                continue
-
-            new_row = move_right(i, initial_row[:])
-            if new_row != initial_row:
-                successor[f'D1: Disk {initial_row[i]}'] = (tuple(new_row), goal_row)
-
-            new_row = hop_right(i, initial_row[:])
-            if new_row != initial_row:
-                successor[f"D2: Disk {initial_row[i]}"] = (tuple(new_row), goal_row)
-
-            new_row = move_left(i, initial_row[:])
-            if new_row != initial_row:
-                successor[f"L1: Disk {initial_row[i]}"] = (tuple(new_row), goal_row)
-
-            new_row = hop_left(i, initial_row[:])
-            if new_row != initial_row:
-                successor[f"L2: Disk {initial_row[i]}"] = (tuple(new_row), goal_row)
-
+        for i in range(0, self.n):
+            for j in range(0, self.n):
+                if initial[i] == () or i == j:
+                    continue
+                if initial[j] == () or initial[i][-1] <= initial[j][-1]:
+                    pillars = list(initial)
+                    pillar1 = list(initial[i])
+                    pillar2 = list(initial[j])
+                    pillar1.remove(initial[i][-1])
+                    pillar2.append(initial[i][-1])
+                    pillars[i] = tuple(pillar1)
+                    pillars[j] = tuple(pillar2)
+                    successor[f'MOVE TOP BLOCK FROM PILLAR {i+1} TO PILLAR {j+1}'] = (tuple(pillars),state[1])
         return successor
+
 
     def actions(self, state):
         return self.successor(state).keys()
@@ -535,22 +487,14 @@ class Row(Problem):
 
 
 if __name__ == "__main__":
-    N = int(input())  # 3
-    L = int(input())  # 7
+    # 3, 2, 1;;
+    # ;;3, 2, 1
+    initial = input().split(';')
+    goal = input().split(';')
+    initial_state = tuple([tuple(map(int, t.split(','))) if t != '' else () for t in initial])
+    goal_state = tuple([tuple(map(int, t.split(','))) if t != '' else () for t in goal])
 
-    initial_row = list()  # [1,2,3,0,0,0,0]
-    goal_row = list()  # [0,0,0,0,3,2,1]
-
-    for i in range(1, N + 1):
-        initial_row.append(i)
-
-    for i in range(0, L - N):
-        initial_row.append(0)
-        goal_row.append(0)
-
-    for i in range(N, 0, -1):
-        goal_row.append(i)
-
-    row = Row((tuple(initial_row), tuple(goal_row)))
-    result = breadth_first_graph_search(row)
-    print(result.solution())
+    tower = Tower_Of_Hanoi(len(initial_state), (initial_state, goal_state))
+    result = breadth_first_graph_search(tower).solution()
+    print(f'Number of action {len(result)}')
+    print(result)

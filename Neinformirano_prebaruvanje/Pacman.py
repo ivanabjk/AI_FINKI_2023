@@ -464,93 +464,164 @@ def uniform_cost_search(problem):
     return graph_search(problem, PriorityQueue(min, lambda a: a.path_cost))
 
 
-def move_right(index, row):
-    if index + 1 < len(row) and row[index + 1] == 0:
-        row[index + 1] = row[index]
-        row[index] = 0
-    return row
+def move_forward(pacman, direction, dots, obstacles):
+    new_pacman = list(pacman)
+    new_dir = direction
+
+    if direction == "jug":
+        if (pacman[0], pacman[1] - 1) not in obstacles and pacman[1] - 1 >= 0:
+            new_pacman[1] = new_pacman[1] - 1
+            new_dir = "jug"
+    elif direction == "sever":
+        if (pacman[0], pacman[1] + 1) not in obstacles and pacman[1] + 1 < 10:
+            new_pacman[1] = new_pacman[1] + 1
+            new_dir = "sever"
+    elif direction == "istok":
+        if (pacman[0] + 1, pacman[1]) not in obstacles and pacman[0] + 1 < 10:
+            new_pacman[0] = new_pacman[0] + 1
+            new_dir = "istok"
+    elif direction == "zapad":
+        if (pacman[0] - 1, pacman[1]) not in obstacles and pacman[0] - 1 >= 0:
+            new_pacman[0] = new_pacman[0] - 1
+            new_dir = "zapad"
+
+    new_dots = tuple([dot for dot in dots if dot != tuple(new_pacman)])
+    return tuple(new_pacman), new_dir, new_dots
 
 
-def hop_right(index, row):
-    if index + 2 < len(row) and row[index + 2] == 0 and row[index + 1] != 0:
-        row[index + 2] = row[index]
-        row[index] = 0
-    return row
+def move_back(pacman, direction, dots, obstacles):
+    new_pacman = list(pacman)
+    new_dir = direction
+
+    if direction == "sever":
+        if (pacman[0], pacman[1] - 1) not in obstacles and pacman[1] - 1 >= 0:
+            new_pacman[1] = new_pacman[1] - 1
+            new_dir = "jug"
+    elif direction == "jug":
+        if (pacman[0], pacman[1] + 1) not in obstacles and pacman[1] + 1 < 10:
+            new_pacman[1] = new_pacman[1] + 1
+            new_dir = "sever"
+    elif direction == "zapad":
+        if (pacman[0] + 1, pacman[1]) not in obstacles and pacman[0] + 1 < 10:
+            new_pacman[0] = new_pacman[0] + 1
+            new_dir = "istok"
+    elif direction == "istok":
+        if (pacman[0] - 1, pacman[1]) not in obstacles and pacman[0] - 1 >= 0:
+            new_pacman[0] = new_pacman[0] - 1
+            new_dir = "zapad"
+
+    new_dots = tuple([dot for dot in dots if dot != tuple(new_pacman)])
+    return tuple(new_pacman), new_dir, new_dots
 
 
-def move_left(index, row):
-    if index - 1 >= 0 and row[index - 1] == 0:
-        row[index - 1] = row[index]
-        row[index] = 0
-    return row
+def turn_left(pacman, direction, dots, obstacles):
+    new_pacman = list(pacman)
+    new_dir = direction
+
+    if direction == "zapad":
+        if (pacman[0], pacman[1] - 1) not in obstacles and pacman[1] - 1 >= 0:
+            new_pacman[1] = new_pacman[1] - 1
+            new_dir = "jug"
+    elif direction == "istok":
+        if (pacman[0], pacman[1] + 1) not in obstacles and pacman[1] + 1 < 10:
+            new_pacman[1] = new_pacman[1] + 1
+            new_dir = "sever"
+    elif direction == "jug":
+        if (pacman[0] + 1, pacman[1]) not in obstacles and pacman[0] + 1 < 10:
+            new_pacman[0] = new_pacman[0] + 1
+            new_dir = "istok"
+    elif direction == "sever":
+        if (pacman[0] - 1, pacman[1]) not in obstacles and pacman[0] - 1 >= 0:
+            new_pacman[0] = new_pacman[0] - 1
+            new_dir = "zapad"
+
+    new_dots = tuple([dot for dot in dots if dot != tuple(new_pacman)])
+    return tuple(new_pacman), new_dir, new_dots
 
 
-def hop_left(index, row):
-    if index - 2 >= 0 and row[index - 2] == 0 and row[index - 1] != 0:
-        row[index - 2] = row[index]
-        row[index] = 0
-    return row
+def turn_right(pacman, direction, dots, obstacles):
+    new_pacman = list(pacman)
+    new_dir = direction
+
+    if direction == "istok":
+        if (pacman[0], pacman[1] - 1) not in obstacles and pacman[1] - 1 >= 0:
+            new_pacman[1] = new_pacman[1] - 1
+            new_dir = "jug"
+    elif direction == "zapad":
+        if (pacman[0], pacman[1] + 1) not in obstacles and pacman[1] + 1 < 10:
+            new_pacman[1] = new_pacman[1] + 1
+            new_dir = "sever"
+    elif direction == "sever":
+        if (pacman[0] + 1, pacman[1]) not in obstacles and pacman[0] + 1 < 10:
+            new_pacman[0] = new_pacman[0] + 1
+            new_dir = "istok"
+    elif direction == "jug":
+        if (pacman[0] - 1, pacman[1]) not in obstacles and pacman[0] - 1 >= 0:
+            new_pacman[0] = new_pacman[0] - 1
+            new_dir = "zapad"
+
+    new_dots = tuple([dot for dot in dots if dot != tuple(new_pacman)])
+    return tuple(new_pacman), new_dir, new_dots
 
 
-class Row(Problem):
-    def __init__(self, initial, goal=None):
+class Pacman(Problem):
+
+    def __init__(self, obstacles, initial, goal=None):
         super().__init__(initial, goal)
+        self.obstacles = obstacles
 
     def successor(self, state):
+        # state = ((x, y), direction, dots)
         successor = dict()
-        # state = ((1,2,3,0,0,0,0), (0,0,0,0,3,2,1))
-        initial_row = list(state[0])  # 3
-        goal_row = state[1]  # 7
+        pacman = state[0]
+        dir = state[1]  # istok', 'zapad', 'sever', 'jug'
+        dots = state[2]
 
-        for i in range(0, len(goal_row)):
-            if initial_row[i] == 0:
-                continue
+        new_pacman, new_dir, new_dots = move_forward(pacman, dir, dots, self.obstacles)
+        if new_pacman != pacman:
+            successor["ProdolzhiPravo"] = (new_pacman, new_dir, new_dots)
 
-            new_row = move_right(i, initial_row[:])
-            if new_row != initial_row:
-                successor[f'D1: Disk {initial_row[i]}'] = (tuple(new_row), goal_row)
+        new_pacman, new_dir, new_dots = move_back(pacman, dir, dots, self.obstacles)
+        if new_pacman != pacman:
+            successor["ProdolzhiNazad"] = (new_pacman, new_dir, new_dots)
 
-            new_row = hop_right(i, initial_row[:])
-            if new_row != initial_row:
-                successor[f"D2: Disk {initial_row[i]}"] = (tuple(new_row), goal_row)
+        new_pacman, new_dir, new_dots = turn_left(pacman, dir, dots, self.obstacles)
+        if new_pacman != pacman:
+            successor["SvrtiLevo"] = (new_pacman, new_dir, new_dots)
 
-            new_row = move_left(i, initial_row[:])
-            if new_row != initial_row:
-                successor[f"L1: Disk {initial_row[i]}"] = (tuple(new_row), goal_row)
-
-            new_row = hop_left(i, initial_row[:])
-            if new_row != initial_row:
-                successor[f"L2: Disk {initial_row[i]}"] = (tuple(new_row), goal_row)
+        new_pacman, new_dir, new_dots = turn_right(pacman, dir, dots, self.obstacles)
+        if new_pacman != pacman:
+            successor["SvrtiDesno"] = (new_pacman, new_dir, new_dots)
 
         return successor
+
 
     def actions(self, state):
         return self.successor(state).keys()
 
+
     def result(self, state, action):
         return self.successor(state)[action]
 
+
     def goal_test(self, state):
-        return state[0] == state[1]
+        return len(state[2]) == 0
 
 
 if __name__ == "__main__":
-    N = int(input())  # 3
-    L = int(input())  # 7
+    x = int(input())  # 0
+    y = int(input())  # 0
+    pacman_coordinates = (x,y)
+    direction = input()  # istok
+    number_of_dots = int(input())  # 5
+    dots = list()
+    for i in range(0, number_of_dots):
+        dots.append(tuple(map(int, input().split(","))))
 
-    initial_row = list()  # [1,2,3,0,0,0,0]
-    goal_row = list()  # [0,0,0,0,3,2,1]
+    obstacles = [(6, 0), (4, 1), (5, 1), (6, 1), (8, 1), (1, 2), (6, 2), (1, 3), (1, 4), \
+                 (8, 4), (9, 4), (4, 5), (0, 6), (3, 6), (4, 6), (5, 6), (4, 7), (8, 7), \
+                 (9, 7), (0, 8), (8, 8), (9, 8), (0, 9), (1, 9), (2, 9), (3, 9), (6, 9)]
 
-    for i in range(1, N + 1):
-        initial_row.append(i)
-
-    for i in range(0, L - N):
-        initial_row.append(0)
-        goal_row.append(0)
-
-    for i in range(N, 0, -1):
-        goal_row.append(i)
-
-    row = Row((tuple(initial_row), tuple(goal_row)))
-    result = breadth_first_graph_search(row)
+    pacman = Pacman(obstacles, (pacman_coordinates, direction, tuple(dots)))
+    result = breadth_first_graph_search(pacman)
     print(result.solution())
