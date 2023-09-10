@@ -595,14 +595,11 @@ class Pacman(Problem):
 
         return successor
 
-
     def actions(self, state):
         return self.successor(state).keys()
 
-
     def result(self, state, action):
         return self.successor(state)[action]
-
 
     def goal_test(self, state):
         return len(state[2]) == 0
@@ -611,7 +608,7 @@ class Pacman(Problem):
 if __name__ == "__main__":
     x = int(input())  # 0
     y = int(input())  # 0
-    pacman_coordinates = (x,y)
+    pacman_coordinates = (x, y)
     direction = input()  # istok
     number_of_dots = int(input())  # 5
     dots = list()

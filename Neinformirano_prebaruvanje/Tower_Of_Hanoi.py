@@ -452,7 +452,7 @@ def uniform_cost_search(problem):
 
 class Tower_Of_Hanoi(Problem):
 
-    def __init__(self, n, initial, goal = None):
+    def __init__(self, n, initial, goal=None):
         super().__init__(initial, goal)
         self.n = n
 
@@ -472,9 +472,8 @@ class Tower_Of_Hanoi(Problem):
                     pillar2.append(initial[i][-1])
                     pillars[i] = tuple(pillar1)
                     pillars[j] = tuple(pillar2)
-                    successor[f'MOVE TOP BLOCK FROM PILLAR {i+1} TO PILLAR {j+1}'] = (tuple(pillars),state[1])
+                    successor[f'MOVE TOP BLOCK FROM PILLAR {i + 1} TO PILLAR {j + 1}'] = (tuple(pillars), state[1])
         return successor
-
 
     def actions(self, state):
         return self.successor(state).keys()
